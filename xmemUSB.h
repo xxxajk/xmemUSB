@@ -9,7 +9,7 @@
 #define	XMEMUSB_H
 
 #ifndef CONSOLE
-#define CONSOLE 1
+#define CONSOLE 0
 #endif
 #ifndef CONSOLE_BAUD_RATE
 #define CONSOLE_BAUD_RATE 115200

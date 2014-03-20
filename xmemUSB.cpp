@@ -49,7 +49,7 @@ static int tty_stderr_putc(char c, FILE *t) {
 }
 
 static int tty_std_putc(char c, FILE *t) {
-        if(c == '\n') USB_HOST_SERIAL.write('\r');
+        if(c == '\n') KONSOLE.write('\r');
         KONSOLE.write(c);
 
 }
@@ -61,6 +61,7 @@ static int tty_std_getc(FILE *t) {
 
 void USB_Setup(USB_Module_Calls func[]) {
 
+        while(!KONSOLE);
         // Set up stdio/stderr
         tty_stdio.put = tty_std_putc;
         tty_stdio.get = tty_std_getc;
@@ -75,21 +76,10 @@ void USB_Setup(USB_Module_Calls func[]) {
         tty_stderr.udata = 0;
         stderr = &tty_stderr;
 
-//#if CONSOLE == 0
-//        // Ensure TX is off
-//        _SFR_BYTE(UCSR0B) &= ~_BV(TXEN0);
-//#endif
-//        USB_HOST_SERIAL.begin(CONSOLE_BAUD_RATE);
-//        // Do not start primary Serial port if already started.
-//#if CONSOLE == 0
-//        if (bit_is_clear(UCSR0B, TXEN0)) {
-//#endif
                 KONSOLE.begin(CONSOLE_BAUD_RATE);
-//#if CONSOLE == 0
-//        }
-//#endif
+
 #if USB_HOST_SERIAL_NUM != CONSOLE
-USB_HOST_SERIAL.begin(CONSOLE_BAUD_RATE);
+                USB_HOST_SERIAL.begin(CONSOLE_BAUD_RATE);
 #endif
 
         uint8_t i = 0;
