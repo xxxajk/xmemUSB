@@ -61,7 +61,9 @@ static int tty_std_getc(FILE *t) {
 
 void USB_Setup(USB_Module_Calls func[]) {
 
+#if CONSOLE == 0
         while(!KONSOLE);
+#endif
         // Set up stdio/stderr
         tty_stdio.put = tty_std_putc;
         tty_stdio.get = tty_std_getc;
