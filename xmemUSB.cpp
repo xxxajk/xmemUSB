@@ -4,21 +4,28 @@ extern USB Usb;
 
 volatile USB_Module_Calls USB_Module[MAX_USB_MODULES + 1] = {NULL};
 
-#if defined(__AVR__)
+#ifdef USE_MULTIPLE_APP_API
 extern "C" unsigned int freeHeap();
 static FILE tty_stdio;
 static FILE tty_stderr;
 static uint8_t PID_of_USB;
-#elif defined(__arm__) && defined(CORE_TEENSY)
+
+#else
+#if defined(__arm__) && defined(CORE_TEENSY)
 #include <sys/stat.h>
 #define USB_TASK_INTERVAL 10000
 static IntervalTimer USB_timed_isr;
+#else
+#error Do not know how to do ISR and not a multiple app
+#endif
+
 static uint8_t last_state = 1;
 static uint8_t current_state;
 
 // USB task isr
 
 void Do_USB(void) {
+
         USB_ISR_PROTECTED_CALL() {
                 int i;
                 // These can take a while...
@@ -51,32 +58,34 @@ uint8_t USB_ISR_PROTECTED_CALL_END() {
 
 void USB_main(void) {
         uint8_t i = 0;
-#if  defined(__arm__) && defined(CORE_TEENSY)
+#ifndef XMEM_MULTIPLE_APP
 
-        USB_ISR_PROTECTED_CALL() {
+        USB_ISR_PROTECTED_CALL()
 #endif
+        {
                 while(USB_Module[i]) {
                         if(!USB_Module[i](1, 0, 0)) return; // Runs Init on each
                         i++;
                 }
 
                 while(Usb.Init(1000) == -1);
-#if  defined(__arm__) && defined(CORE_TEENSY)
-        //                USB_timed_isr.begin(Do_USB, USB_TASK_INTERVAL); // .01 second
+        }
+#ifdef XMEM_MULTIPLE_APP
+        uint8_t current_state;
+        uint8_t last_state;
+        current_state = Usb.getUsbTaskState();
+        last_state = current_state;
+        for(;;) {
+                Usb.Task();
+                current_state = Usb.getUsbTaskState();
+                i = 0;
+                while(USB_Module[i]) {
+                        if(!USB_Module[i](2, current_state, last_state)) xmem::Yield(); //Poll, sleep if work is done
+                        i++;
+                }
+                last_state = current_state;
 
         }
-#else
-                for(;;) {
-                        Usb.Task();
-                        current_state = Usb.getUsbTaskState();
-                        i = 0;
-                        while(USB_Module[i]) {
-                                if(!USB_Module[i](2, current_state, last_state)) xmem::Yield(); //Poll, sleep if work is done
-                                i++;
-                        }
-                        last_state = current_state;
-
-                }
 #endif
 }
 
@@ -105,10 +114,13 @@ extern "C" {
         int _write(int fd, const char *ptr, int len) {
                 int j;
                 for(j = 0; j < len; j++) {
-                        if(fd == 1)
+                        if(fd == 1) {
+                                if(*ptr == '\n') KONSOLE.write('\r');
                                 KONSOLE.write(*ptr++);
-                        else if(fd == 2)
+                        } else if(fd == 2) {
+                                if(*ptr == '\n') USB_HOST_SERIAL.write('\r');
                                 USB_HOST_SERIAL.write(*ptr++);
+                        }
                 }
                 return len;
         }
@@ -155,7 +167,7 @@ void USB_Setup(USB_Module_Calls func[]) {
         tty_stderr.flags = _FDEV_SETUP_WRITE;
         tty_stderr.udata = 0;
         stderr = &tty_stderr;
-#elif defined(__arm__) && defined(CORE_TEENSY)
+        //#elif defined(__arm__) && defined(CORE_TEENSY)
         //setbuffer(stdout, NULL, 0);
         //setvbuf (stdout, NULL, _IONBF, 0);
 #endif
@@ -175,7 +187,7 @@ void USB_Setup(USB_Module_Calls func[]) {
                 }
         }
         USB_Module[i] = NULL;
-#if defined(__AVR__)
+#ifdef XMEM_MULTIPLE_APP
         PID_of_USB = xmem::SetupTask(USB_main
 #ifdef _MAX_SS
 #if _MAX_SS != 512

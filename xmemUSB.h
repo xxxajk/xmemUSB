@@ -36,7 +36,7 @@
 typedef int (*USB_Module_Calls) (uint8_t, uint8_t, uint8_t);
 extern void USB_Setup(USB_Module_Calls func[]);
 extern void USB_main(void);
-#if  defined(__arm__) && defined(CORE_TEENSY)
+#ifndef XMEM_MULTIPLE_APP
 uint8_t USB_ISR_PROTECTED_CALL_START();
 uint8_t USB_ISR_PROTECTED_CALL_END();
 #define USB_ISR_PROTECTED_CALL() for(char __ToDo = USB_ISR_PROTECTED_CALL_START(); __ToDo;  __ToDo = USB_ISR_PROTECTED_CALL_END())
